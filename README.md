@@ -6,20 +6,18 @@ Code to package various versions of Prometheus project's node_exporter with mini
 
 ## Features
 
-* Includes logrotate and rsyslog config to manage and write logs to `/var/log/prometheus/node_exporter`.
+* Includes logrotate and rsyslog config to manage and write logs to `/var/log/prometheus/node_exporter.log`.
 * Has SystemD setup to restart node_exporter on failure.
 * Tries to find a balance between practical conventions and file system hierarchy specification at http://www.pathname.com/fhs/pub/fhs-2.3.html.
 * Creates its own user and group called `prometheus` with no interactive shell configured.
 * Various paths that will appear after installation:
-    * Bin path for `prometheus` and `promtool`: `/usr/bin`
-    * Config path: `/etc/prometheus`
-    * Path to store assets for embedded web UI: `/usr/share/prometheus`
-    * Home folder (might be needed to store various credentials, eg AWS, if you want to use them): `/home/prometheus`
-    * Log folder: `/var/log/prometheus`
-    * Logrotate config: `/etc/logrotate.d/prometheus.conf`
-    * RSyslog config: `/etc/rsyslog.d/prometheus.conf`
-    * SystemD Unit definiton: `/usr/lib/systemd/system/prometheus.service`
-    * Environment variables: `/usr/lib/systemd/system/prometheus.service.d/environment.conf`
+    * Bin path for `node_exporter`: `/usr/bin`
+    * Path to store LICENSE and NOTICE: `/usr/share/prometheus/node_exporter`
+    * Log file: `/var/log/prometheus/node_exporter.log`
+    * Logrotate config: `/etc/logrotate.d/prometheus-node-exporter.conf`
+    * RSyslog config: `/etc/rsyslog.d/prometheus-node-exporter.conf`
+    * SystemD Unit definiton: `/usr/lib/systemd/system/prometheus-node-exporter.service`
+    * Environment variables: `/usr/lib/systemd/system/prometheus-node-exporter.service.d/environment.conf`
 
 ## Pre-requisites
 
@@ -28,7 +26,7 @@ Code to package various versions of Prometheus project's node_exporter with mini
 
 ## Limitations
 
-* Script has been only tested on CentOS 7 to package latest available prometheus. Please feel free to make pull requests if you want to add more nuanced support for older versions.
+* Script has been only tested on CentOS 7 to package latest available node_exporter. Please feel free to make pull requests if you want to add more nuanced support for older versions.
 * No guarantees are being made for fitness of purpose or merchantabilities. Any results of usage of work herein is not author's or contributor's responsibility.
 
 ## Usage
@@ -52,10 +50,10 @@ Code to package various versions of Prometheus project's node_exporter with mini
     Please restart RSyslog so that logs are written to /var/log/prometheus:
         systemctl restart rsyslog.service
     To have prometheus start automatically on boot:
-        systemctl enable prometheus.service
+        systemctl enable prometheus-node-exporter.service
     Start prometheus:
         systemctl daemon-reload
-        systemctl start prometheus.service
+        systemctl start prometheus-node-exporter.service
     ##################################################################################
     ```
 
