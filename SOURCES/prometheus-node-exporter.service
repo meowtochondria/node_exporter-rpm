@@ -1,7 +1,7 @@
 # -*- mode: conf -*-
 
 [Unit]
-Description=The Prometheus monitoring system and time series database.
+Description=Node metrics collector and publisher.
 Documentation=https://prometheus.io
 After=network.target
 
