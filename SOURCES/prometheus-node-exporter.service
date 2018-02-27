@@ -1,7 +1,7 @@
 # -*- mode: conf -*-
 
 [Unit]
-Description=The Prometheus monitoring system and time series database.
+Description=Node metrics collector and publisher.
 Documentation=https://prometheus.io
 After=network.target
 
@@ -10,10 +10,10 @@ User=prometheus
 Group=prometheus
 # These constants appear in /usr/lib/systemd/system/prometheus-node-exporter.service.d/environment.conf
 ExecStart=/usr/bin/node_exporter \
-          -web.telemetry-path=${TELEMETRY_PATH} \
-          -web.listen-address=${WEB_ADDR} \
-          -log.format=${SYSLOG_CONF} \
-          -log.level=${LOG_LEVEL}
+          --web.telemetry-path=${TELEMETRY_PATH} \
+          --web.listen-address=${WEB_ADDR} \
+          --log.format=${SYSLOG_CONF} \
+          --log.level=${LOG_LEVEL}
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 StandardOutput=syslog
