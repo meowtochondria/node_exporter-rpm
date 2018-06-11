@@ -4,16 +4,16 @@
 # Some initializations.                   #
 ###########################################
 project='prometheus'
-product='jmx_exporter'
+product='node_exporter'
 pkg_version='latest'
 pkg_release='1'
 isDebug=false
 current_dir=$(dirname ${0})
 build_root=$(realpath $current_dir/rpmbuild)
-download_url_root="https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent"
-release_link="https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/maven-metadata.xml"
+download_url_root="https://github.com/$project/$product/releases/download/"
+release_link="https://api.github.com/repos/$project/$product/releases"
 execute_features=()
-declare -a available_versions
+declare -A available_versions
 
 # Array containing mapping of dependency binaries to the packages that contain them.
 # This is used in perform_safety_checks() to install missing packages.
@@ -22,7 +22,7 @@ declare -A deps_bin_to_pkg
 deps_bin_to_pkg=(
     ['wget']='wget'
     ['rpmbuild']='rpm-build'
-    ['md5sum']='coreutils'
+    ['sha256sum']='coreutils'
     ['curl']='curl'
 )
 ###########################################
@@ -167,7 +167,7 @@ function validate_inputs()
 
     is_version_valid='false'
     if [ "$pkg_version" == "latest" ]; then
-        pkg_version=$(echo ${available_versions[@]} | tr ' ' '\n' | sort --version-sort | tail -n 1)
+        pkg_version=$(echo ${!available_versions[@]} | tr ' ' '\n' | sort --version-sort | tail -n 1)
         is_version_valid='true'
     else
         for available_version in ${!available_versions[@]}; do
@@ -190,13 +190,17 @@ function validate_inputs()
 function get_available_versions()
 {
     print_debug_line "Getting available versions from $release_link"
-    available_versions=( $(curl --silent $release_link | grep -oP "<version>.+</version>" | grep -oP "\d+\.\d+") )
+    links=$(curl --silent $release_link | grep -oP "https.+$product-\d+\.\d+\.\d+\.linux-amd64.tar.gz")
     if [ "$?" -ne 0 ]; then
         echo "Could not fetch releases from $release_link."
         echo "Please verify you are connected to the interwebz."
         echo "Exiting..."
         exit 7
     fi
+    for link in $links; do
+        ver=$(echo $link | cut -f 8 -d '/' | tr -d 'v')
+        available_versions["$ver"]=$link
+    done
 }
 
 function print_available_versions()
@@ -204,7 +208,7 @@ function print_available_versions()
     echo "Released versions available upstream..."
     [ ${#available_versions[@]} -eq 0 ] && get_available_versions
     # Reference: http://www.tldp.org/LDP/abs/html/arrays.html
-    echo ${available_versions[@]} | tr -s ' ' '\n' | sort --version-sort --reverse
+    echo ${!available_versions[@]} | tr -s ' ' '\n' | sort --version-sort --reverse
 }
 
 function setup_rpm_tree()
@@ -223,50 +227,37 @@ function setup_rpm_tree()
     cp -Rf $current_dir/SOURCES $build_root/
 }
 
-function download_and_verify()
+function download_packages()
 {
-    release_base="$download_url_root/$pkg_version"
-    core_archive_name="jmx_prometheus_javaagent-$pkg_version.jar"
-    checksum="${core_archive_name}.md5"
+    # prometheus is not publishing checksums for every release :/
+    core_archive_name=$(basename ${available_versions[$pkg_version]})
     sources_dir="$build_root/SOURCES"
     failed_download='false'
 
-    for file in $core_archive_name $checksum; do
-        # Skip download if file already exists
-        if [ -f "$sources_dir/$file" ]; then
-            print_debug_line "$sources_dir/$file already exists. Not downloading again..."
-            continue
-        fi
+    # Skip download if file already exists
+    if [ -f "$sources_dir/$core_archive_name" ]; then
+        print_debug_line "$sources_dir/$core_archive_name already exists. Not downloading again..."
+        return
+    fi
 
-        print_debug_line "${FUNCNAME[0]} : Downloading $release_base/$file to $sources_dir/$file"
-        wget -O $sources_dir/$file $release_base/$file
+    print_debug_line "${FUNCNAME[0]} : Downloading ${available_versions[$pkg_version]} to $sources_dir/$core_archive_name"
+    wget -O $sources_dir/$core_archive_name ${available_versions[$pkg_version]}
 
-        # Print a message if download leads to file of size 0, or wget exits with
-        # non-zero exit code
-        if [ ! -s $sources_dir/$file -o "$?" -ne 0 ]; then
-            echo
-            echo "Failed to download $file."
-            echo "Please verify if the link is accurate and network connectivity"
-            echo "is available."
-            failed_download='true'
-        fi
-    done
+    # Print a message if download leads to file of size 0, or wget exits with
+    # non-zero exit code
+    if [ ! -s $sources_dir/$core_archive_name -o "$?" -ne 0 ]; then
+        echo
+        echo "Failed to download ${available_versions[$pkg_version]}."
+        echo "Please verify if the link is accurate and network connectivity"
+        echo "is available."
+        failed_download='true'
+    fi
 
     if [ "$failed_download" == 'true' ]; then
         echo -e "\nDownload(s) failed :(. Exiting.\n"
         exit 8
     fi
 
-    # CentOS 7 is shipping with old sha256sum that does not contain --ignore-missing.
-    # Calculate the checksum and then match it against the one in downloaded file.
-    local_checksum=$(md5sum $sources_dir/$core_archive_name | cut -f 1 -d ' ')
-    published_checksum=$(cat $sources_dir/$checksum)
-    print_debug_line "${FUNCNAME[0]} : $core_archive_name local checksum = $local_checksum"
-    print_debug_line "${FUNCNAME[0]} : $core_archive_name published checksum = $published_checksum"
-    if [ "$local_checksum" != "$published_checksum" ]; then
-        echo "Checksum did not match for $core_archive_name."
-        exit 9
-    fi
 }
 
 ##################
@@ -279,7 +270,7 @@ for func in ${execute_features[@]}; do
 done
 [ ${#execute_features[@]} -gt 0 ] && exit 0
 setup_rpm_tree
-download_and_verify
+download_packages
 # Now that the sources are downloaded and verified we can actually make the RPM.
 # _topdir and _tmppath are magic rpm variables that can be defined in ~/.rpmmacros
 # For ease of reliable builds they are defined here on the command line.
