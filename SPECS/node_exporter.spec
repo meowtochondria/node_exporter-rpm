@@ -29,25 +29,63 @@ This package contains binary to export node metrics to prometheus.
 %setup -q -n node_exporter-%{version}.linux-amd64
 
 %install
+BREAKING_VERSION='0.15.0'
+#=0*10^2+15*10^1+0*10^0. See version_to_number()
+BREAKING_VERSION_INT='150'
+
+function version_to_number() {
+    # To see if we have package version greater than 0.15.0 we are going to replace '.' and '-'
+    # in version string with ' ', then multiply each number with 10^exponent. Exponent starts off
+    # as count of numbers in string obtained after substituting '.' and '-' with ' ', and decreases
+    # by 1 each time it used. Numbers are processed from left to right. Therefore, most significant
+    # digit on left (or in beginning of string) gets the highest exponent.
+
+    version="$1"
+    nums=$(echo "$version" | tr -s '.-' ' ')
+    total_nums=$(echo "$nums" | wc -w)
+    base=10
+    ret_val=0
+    exponent=$((total_nums - 1))
+    for n in $nums; do
+        ret_val=$(( ret_val + base**exponent * n ))
+        exponent=$((--exponent))
+    done
+    echo $ret_val
+}
+
+current_version_int=$(version_to_number "%{version}")
+
 # Directory for storing log files.
-mkdir -p %{buildroot}/%{_localstatedir}/log/prometheus
+mkdir -p %{buildroot}%{_localstatedir}/log/prometheus
 
 # Logrotate config
-mkdir -p %{buildroot}/%{_sysconfdir}/logrotate.d/
-install -m 644 %{SOURCE2} %{buildroot}/%{_sysconfdir}/logrotate.d/%{name}.conf
+mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d/
+install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}.conf
 
 # RSyslog config to enable writing to a file.
-mkdir -p %{buildroot}/%{_sysconfdir}/rsyslog.d/
-install -m 644 %{SOURCE3} %{buildroot}/%{_sysconfdir}/rsyslog.d/%{name}.conf
+mkdir -p %{buildroot}%{_sysconfdir}/rsyslog.d/
+install -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/rsyslog.d/%{name}.conf
 
 # SystemD unit definition and environment settings to go alongside unit file.
-mkdir -p %{buildroot}/%{_unitdir}/%{name}.service.d
-install -m 644 %{SOURCE1} %{buildroot}/%{_unitdir}/%{name}.service
-install -m 644 %{SOURCE4} %{buildroot}/%{_unitdir}/%{name}.service.d/environment.conf
+systemd_unit_dir="%{buildroot}%{_unitdir}"
+systemd_unit_file="$systemd_unit_dir/%{name}.service"
+mkdir -p $systemd_unit_dir
+install -m 644 %{SOURCE1} $systemd_unit_file
+
+# Add another hyphen if package version is >= 0.15.0, else delete placeholder (RPM_EXTRA_HYPHEN)
+if [ "$current_version_int" -ge "$BREAKING_VERSION_INT" ]; then
+    sed -i'' 's|RPM_EXTRA_HYPHEN|-|g' $systemd_unit_file
+else
+    sed -i'' 's|RPM_EXTRA_HYPHEN||g' $systemd_unit_file
+fi
+
+# Make dependency directory for unit, and put environment file in there.
+mkdir -p $systemd_unit_dir/%{name}.service.d
+install -m 644 %{SOURCE4} $systemd_unit_dir/%{name}.service.d/environment.conf
 
 # Binaries
-mkdir -p %{buildroot}/%{_bindir}
-install -m 755 node_exporter %{buildroot}/%{_bindir}/node_exporter
+mkdir -p %{buildroot}%{_bindir}
+install -m 755 node_exporter %{buildroot}%{_bindir}/node_exporter
 
 # Copy over License and notice
 mkdir -p %{buildroot}/usr/share/prometheus/node_exporter
@@ -94,3 +132,13 @@ echo
 /usr/share/prometheus/node_exporter
 /usr/share/prometheus/node_exporter/NOTICE
 /usr/share/prometheus/node_exporter/LICENSE
+
+%changelog
+
+* Sun Feb 04 2019 talk@devghai.com
+- Added support for handling breaking changes introduced in 0.15.0.
+
+* Tue May 23 2017 talk@devghai.com
+- Initial release for packaging Prometheus's Node Exporter.
+  See https://github.com/meowtochondria/node_exporter-rpm/blob/master/README.md.
+
