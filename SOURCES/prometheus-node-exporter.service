@@ -3,7 +3,8 @@
 [Unit]
 Description=Node metrics collector and publisher.
 Documentation=https://prometheus.io
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=prometheus
