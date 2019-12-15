@@ -10,6 +10,7 @@ Source1:        %{name}.service
 Source2:        logrotate.conf
 Source3:        rsyslog.conf
 Source4:        environment.conf
+Source5:        prometheus-node-exporter.xml
 
 BuildRoot:      %{buildroot}
 BuildArch:      x86_64
@@ -92,6 +93,10 @@ mkdir -p %{buildroot}/usr/share/prometheus/node_exporter
 install -m 644 LICENSE %{buildroot}/usr/share/prometheus/node_exporter/LICENSE
 install -m 644 NOTICE %{buildroot}/usr/share/prometheus/node_exporter/NOTICE
 
+# Firewalld service definition
+mkdir -p %{buildroot}%{_prefix}/lib/firewalld/services/
+install -m 644 %{SOURCE5} %{buildroot}%{_prefix}/lib/firewalld/services/prometheus-node-exporter.xml
+
 %pre
 getent group prometheus >/dev/null || groupadd -r prometheus
 getent passwd prometheus >/dev/null || \
@@ -110,6 +115,8 @@ echo "    systemctl enable %{name}.service"
 echo "Start %{name}:"
 echo "    systemctl daemon-reload"
 echo "    systemctl start %{name}.service"
+echo "Please reload firewalld:"
+echo "    systemctl reload firewalld"
 echo "####################################################################################"
 echo
 
@@ -126,6 +133,7 @@ echo
 %config(noreplace) %attr(644, root, root) %{_sysconfdir}/rsyslog.d/%{name}.conf
 %config(noreplace) %{_unitdir}/%{name}.service
 %config(noreplace) %{_unitdir}/%{name}.service.d/environment.conf
+%config %attr(644, root, root) %{_prefix}/lib/firewalld/services/prometheus-node-exporter.xml
 # Log directory
 %dir %attr(755, prometheus, prometheus) %{_localstatedir}/log/prometheus
 
@@ -135,7 +143,10 @@ echo
 
 %changelog
 
-* Sun Feb 04 2019 talk@devghai.com
+* Sat Dec 14 2019 rmartinsjr@gmail.com
+- Added firewalld service definition
+
+* Mon Feb 04 2019 talk@devghai.com
 - Added support for handling breaking changes introduced in 0.15.0.
 
 * Tue May 23 2017 talk@devghai.com
