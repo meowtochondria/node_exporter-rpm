@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>Prometheus Node Exporter</short>
+  <description>Prometheus exporter for hardware and OS metrics exposed by *NIX kernels.</description>
+  <port protocol="tcp" port="9100"/>
+</service>
