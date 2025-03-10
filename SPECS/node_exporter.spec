@@ -29,21 +29,24 @@ This package contains binary to export node metrics to prometheus.
 %setup -q -n node_exporter-%{version}.linux-amd64
 
 %install
-BREAKING_VERSION='0.15.0'
-#=0*10^2+15*10^1+0*10^0. See version_to_number()
-BREAKING_VERSION_INT='150'
+# 0.15.0 = 0*50^2+15*50^1+0*50^0 = 750. See version_to_number()
+BREAKING_VERSION_INT='750'
+# 1.0.0 = 1*50^2+0*50^1+0*50^0 = 2500. See version_to_number()
+BREAKING_VERSION_LOGGER_INT="2500"
 
 function version_to_number() {
     # To see if we have package version greater than 0.15.0 we are going to replace '.' and '-'
-    # in version string with ' ', then multiply each number with 10^exponent. Exponent starts off
+    # in version string with ' ', then multiply each number with $base^exponent. Exponent starts off
     # as count of numbers in string obtained after substituting '.' and '-' with ' ', and decreases
     # by 1 each time it used. Numbers are processed from left to right. Therefore, most significant
     # digit on left (or in beginning of string) gets the highest exponent.
+    # The $base value determines the range of versions for which this computation produces non-
+    # overlapping results. E.g. $base=50 -> 0.0.0-49.49.49 range.
 
     version="$1"
     nums=$(echo "$version" | tr -s '.-' ' ')
     total_nums=$(echo "$nums" | wc -w)
-    base=10
+    base=50
     ret_val=0
     exponent=$((total_nums - 1))
     for n in $nums; do
@@ -80,8 +83,17 @@ else
 fi
 
 # Make dependency directory for unit, and put environment file in there.
-mkdir -p $systemd_unit_dir/%{name}.service.d
-install -m 644 %{SOURCE4} $systemd_unit_dir/%{name}.service.d/environment.conf
+environment_conf_dir="$systemd_unit_dir/%{name}.service.d"
+environment_conf_file="$environment_conf_dir/environment.conf"
+mkdir -p $environment_conf_dir
+install -m 644 %{SOURCE4} $environment_conf_file
+
+# Apply new logging configuration if the package version is >= 1.0.0.
+if [ "$current_version_int" -ge "$BREAKING_VERSION_LOGGER_INT" ]; then
+    sed -i'' 's|RPM_LOG_FORMAT|logfmt|g' $environment_conf_file
+else
+    sed -i'' 's|RPM_LOG_FORMAT|logger:stderr|g' $environment_conf_file
+fi
 
 # Binaries
 mkdir -p %{buildroot}%{_bindir}
