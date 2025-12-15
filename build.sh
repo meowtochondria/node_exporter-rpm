@@ -13,6 +13,7 @@ build_root=$(realpath $current_dir/rpmbuild)
 download_url_root="https://github.com/$project/$product/releases/download/"
 release_link="https://api.github.com/repos/$project/$product/releases"
 execute_features=()
+target_arch=''
 declare -A available_versions
 
 # Array containing mapping of dependency binaries to the packages that contain them.
@@ -57,8 +58,8 @@ function usage()
 
 function parse_command()
 {
-    SHORT=v:r:b:lhd
-    LONG=version:,release:,build_root:,list,help,debug
+    SHORT=v:r:b:lhda:
+    LONG=version:,release:,build_root:,list,help,debug,arch:
     PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
     if [[ $? -ne 0 ]]; then
         # e.g. $? == 1
@@ -89,6 +90,10 @@ function parse_command()
                 build_root="$2"
                 shift 2
                 ;;
+            -a|--arch)
+                target_arch="$2"
+                shift 2
+                ;;
             -l|--list)
                 execute_features+=('print_available_versions')
                 shift
@@ -107,6 +112,38 @@ function parse_command()
                 ;;
         esac
     done
+}
+
+function detect_arch_and_os() {
+    if [ -z "$target_arch" ]; then
+        target_arch=$(uname -m)
+    fi
+    
+    raw_arch="$target_arch"
+
+    case "$raw_arch" in
+        x86_64)          product_arch="amd64" ;;
+        aarch64)         product_arch="arm64" ;;
+        armv7l|armv7hl)  product_arch="armv7" ;;
+        riscv64)         product_arch="riscv64" ;;
+        ppc64le)         product_arch="ppc64le" ;;
+        s390x)           product_arch="s390x" ;;
+        i686|i386)       product_arch="386" ;;
+        *)               product_arch="$raw_arch" ;;
+    esac
+
+    rpm_arch="$raw_arch"
+
+    if [ -f /usr/lib/rpm/rpmrc ]; then
+        translated_arch=$(grep "^buildarchtranslate: $raw_arch:" /usr/lib/rpm/rpmrc | awk '{print $3}')
+        
+        if [ -n "$translated_arch" ]; then
+            print_debug_line "Found architecture translation in rpmrc: $raw_arch -> $translated_arch"
+            rpm_arch="$translated_arch"
+        fi
+    fi
+
+    print_debug_line "Final Architectures -> Raw: $raw_arch | RPM: $rpm_arch | Product: $product_arch"
 }
 
 function perform_safety_checks()
@@ -190,7 +227,7 @@ function validate_inputs()
 function get_available_versions()
 {
     print_debug_line "Getting available versions from $release_link"
-    links=$(curl --silent $release_link | grep -oP "https.+$product-\d+\.\d+\.\d+\.linux-amd64.tar.gz")
+    links=$(curl --silent $release_link | grep -oP "https.+$product-\d+\.\d+\.\d+\.linux-$product_arch.tar.gz")
     if [ "$?" -ne 0 ]; then
         echo "Could not fetch releases from $release_link."
         echo "Please verify you are connected to the interwebz."
@@ -264,6 +301,8 @@ function download_packages()
 # Pass all args of the script to the function.
 parse_command "$@"
 perform_safety_checks
+# Get the architecture code of the current execution build.
+detect_arch_and_os
 validate_inputs
 for func in ${execute_features[@]}; do
     ($func)
@@ -275,4 +314,4 @@ download_packages
 # _topdir and _tmppath are magic rpm variables that can be defined in ~/.rpmmacros
 # For ease of reliable builds they are defined here on the command line.
 print_debug_line "Starting rpmbuild."
-rpmbuild -ba --define="_topdir $build_root" --define="buildroot $build_root/BUILDROOT" --define="pkg_version $pkg_version" --define="rpm_release $pkg_release" $build_root/SPECS/$product.spec
+rpmbuild -ba --define="_topdir $build_root" --define="buildroot $build_root/BUILDROOT" --define="pkg_version $pkg_version" --define="rpm_release $pkg_release" --target "$rpm_arch" $build_root/SPECS/$product.spec

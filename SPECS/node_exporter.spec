@@ -1,3 +1,5 @@
+%global debug_package %{nil}
+
 Name:           prometheus-node-exporter
 Version:        %{pkg_version}
 Release:        %{rpm_release}%{?dist}
@@ -12,7 +14,6 @@ Source3:        rsyslog.conf
 Source4:        environment.conf
 
 BuildRoot:      %{buildroot}
-BuildArch:      x86_64
 BuildRequires:  systemd-units
 Requires:       systemd, logrotate, rsyslog > 7.2
 Requires(pre):  shadow-utils
