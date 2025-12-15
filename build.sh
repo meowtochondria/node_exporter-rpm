@@ -8,6 +8,13 @@ product='node_exporter'
 pkg_version='latest'
 pkg_release='1'
 isDebug=false
+
+if [ "$CI" = "true" ] || [ -n "$JENKINS_URL" ] || [ "$GITHUB_ACTIONS" = "true" ] || [ "$GITLAB_CI" = "true" ]; then
+    isCI=true
+else
+    isCI=false
+fi
+
 current_dir=$(dirname ${0})
 build_root=$(realpath $current_dir/rpmbuild)
 download_url_root="https://github.com/$project/$product/releases/download/"
@@ -112,25 +119,53 @@ function parse_command()
 function perform_safety_checks()
 {
     # Ensure we are not running as root.
-    if [ $EUID -eq 0 ]; then
+    if [ "$isCI" != "true" ] && [ $EUID -eq 0 ]; then
         echo 'Please do not run this script as root.'
         echo 'See https://fedoraproject.org/wiki/How_to_create_an_RPM_package#Preparing_your_system for details.'
         exit 3
     fi
 
-    # Ensure we are on Red Hat or its derivatives.
-    if [ -f "/proc/version" ]; then
-        proc_version=`cat /proc/version`
+    if [ "$isCI" = "true" ]; then
+        # In a CI environment, the build might be running inside a container,
+        # where /proc/version reflects the host kernel version rather than the container's.
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            if [[ "$ID" == "rhel" || "$ID" == "centos" || "$ID" == "fedora" || "$ID_LIKE" == *"rhel"* || "$ID_LIKE" == *"fedora"* ]]; then
+                is_rhel_derivative=true
+                print_debug_line "Detected OS: $PRETTY_NAME"
+            fi
+        elif [ -f /etc/redhat-release ]; then
+            is_rhel_derivative=true
+            print_debug_line "Detected OS via /etc/redhat-release: $(cat /etc/redhat-release)"
+        fi
+
+        if [ "$is_rhel_derivative" = false ]; then
+            echo "ERROR: Your OS does not appear to be a RHEL/Fedora derivative."
+            echo "This script relies on rpmbuild and yum/dnf."
+            exit 4
+        fi
     else
-        proc_version=`uname -a`
+        # Ensure we are on Red Hat or its derivatives.
+        if [ -f "/proc/version" ]; then
+            proc_version=`cat /proc/version`
+        else
+            proc_version=`uname -a`
+        fi
+
+        print_debug_line "${FUNCNAME[0]} : proc version = $proc_version"
+
+        if [[ $proc_version != *"Red Hat"* ]]; then
+            echo "ERROR: Your OS is not supported by this script! :("
+            echo "At the moment only Red Hat and its derivatives are supported."
+            exit 4
+        fi
     fi
 
-    print_debug_line "${FUNCNAME[0]} : proc version = $proc_version"
-
-    if [[ $proc_version != *"Red Hat"* ]]; then
-        echo "ERROR: Your OS is not supported by this script! :("
-        echo "At the moment only Red Hat and its derivatives are supported."
-        exit 4
+    if ! command -v which &> /dev/null; then
+        echo -e "CRITICAL ERROR: The utility 'which' is not found on this system."
+        echo -e "This script relies on 'which' to locate other dependencies."
+        echo -e "Please install it using: dnf install which"
+        exit 1
     fi
 
     # Check if packages are installed
@@ -146,6 +181,12 @@ function perform_safety_checks()
 
     # Install missing packages. Exit if installation is unsuccessful.
     if [ -n "$unavailable_packages" ]; then
+        if [ "$isCI" = "true" ]; then
+            echo -e "Please install dependencies in CI steps. Exiting."
+            echo -e "\nMissing packages: $unavailable_packages"
+            exit 5
+        fi
+
         echo -e "\nFollowing packages need to be installed:\n$unavailable_packages"
         echo    "Please enter the password for sudo (if prompted)"
         sudo yum install -y $unavailable_packages
