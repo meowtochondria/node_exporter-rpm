@@ -67,7 +67,12 @@ function parse_command()
     SHORT=v:r:b:lhd
     LONG=version:,release:,build_root:,list,help,debug
     PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
-    if [[ $? -ne 0 ]]; then
+    parse_exit_code=$?
+    if [ $parse_exit_code -ne 0 ]; then
+        if [ $parse_exit_code -eq 127 ]; then
+            echo -e "Bad environment! You need 'util-linux' package!"
+            echo -e "Try this command right now: yum install util-linux"
+        fi
         # e.g. $? == 1
         #  then getopt has complained about wrong arguments to stdout
         exit 1
@@ -178,6 +183,20 @@ function perform_safety_checks()
         fi
         print_debug_line "${FUNCNAME[0]} : $dep is available."
     done
+
+    # The container environment does not have Systemd, so this part will be missing.
+    if [ "$(rpm --eval '%systemd_post')" == "%systemd_post" ]; then
+        print_debug_line "${FUNCNAME[0]} : Systemd RPM macros are missing."
+        if grep -q "release 7" /etc/redhat-release 2>/dev/null; then
+            sys_pkg="systemd"
+        else
+            sys_pkg="systemd-rpm-macros"
+        fi
+        print_debug_line "${FUNCNAME[0]} : Adding '$sys_pkg' to installation list."
+        unavailable_packages+="$sys_pkg "
+    else
+        print_debug_line "${FUNCNAME[0]} : Systemd RPM macros are available."
+    fi
 
     # Install missing packages. Exit if installation is unsuccessful.
     if [ -n "$unavailable_packages" ]; then
