@@ -165,33 +165,6 @@ function perform_safety_checks()
     fi
 }
 
-function validate_inputs()
-{
-    # Check if correct version has been supplied. Otherwise downloads will fail.
-    [ ${#available_versions[@]} -eq 0 ] && get_available_versions
-
-    is_version_valid='false'
-    if [ "$pkg_version" == "latest" ]; then
-        pkg_version=$(echo ${!available_versions[@]} | tr ' ' '\n' | sort --version-sort | tail -n 1)
-        is_version_valid='true'
-    else
-        for available_version in ${!available_versions[@]}; do
-            if [ "$available_version" == "$pkg_version" ]; then
-                is_version_valid='true'
-                break
-            fi
-        done
-    fi
-
-    if [ "$is_version_valid" == 'false' ]; then
-        echo "'$pkg_version' of $product is not available upstream. Versions available for packaging:"
-        print_available_versions
-        exit 6
-    fi
-
-    print_debug_line "Using version: $pkg_version"
-}
-
 function detect_arch_and_os() {
     if [ -z "$target_arch" ]; then
         target_arch=$(uname -m)
@@ -222,6 +195,33 @@ function detect_arch_and_os() {
     fi
 
     print_debug_line "Final Architectures -> Raw: $raw_arch | RPM: $rpm_arch | Product: $product_arch"
+}
+
+function validate_inputs()
+{
+    # Check if correct version has been supplied. Otherwise downloads will fail.
+    [ ${#available_versions[@]} -eq 0 ] && get_available_versions
+
+    is_version_valid='false'
+    if [ "$pkg_version" == "latest" ]; then
+        pkg_version=$(echo ${!available_versions[@]} | tr ' ' '\n' | sort --version-sort | tail -n 1)
+        is_version_valid='true'
+    else
+        for available_version in ${!available_versions[@]}; do
+            if [ "$available_version" == "$pkg_version" ]; then
+                is_version_valid='true'
+                break
+            fi
+        done
+    fi
+
+    if [ "$is_version_valid" == 'false' ]; then
+        echo "'$pkg_version' of $product is not available upstream. Versions available for packaging:"
+        print_available_versions
+        exit 6
+    fi
+
+    print_debug_line "Using version: $pkg_version"
 }
 
 function get_available_versions()
@@ -301,9 +301,9 @@ function download_packages()
 # Pass all args of the script to the function.
 parse_command "$@"
 perform_safety_checks
-validate_inputs
 # Get the architecture code of the current execution build.
 detect_arch_and_os
+validate_inputs
 for func in ${execute_features[@]}; do
     ($func)
 done
