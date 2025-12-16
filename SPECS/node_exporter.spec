@@ -1,3 +1,5 @@
+%global debug_package %{nil}
+
 Name:           prometheus-node-exporter
 Version:        %{pkg_version}
 Release:        %{rpm_release}%{?dist}
@@ -5,14 +7,14 @@ Summary:        Prometheus exporter for machine metrics.
 License:        ASL 2.0
 URL:            https://prometheus.io
 
-Source0:        node_exporter-%{pkg_version}.linux-amd64.tar.gz
+Source0:        node_exporter-%{pkg_version}.linux-%{product_arch}.tar.gz
 Source1:        %{name}.service
 Source2:        logrotate.conf
 Source3:        rsyslog.conf
 Source4:        environment.conf
 
 BuildRoot:      %{buildroot}
-BuildArch:      x86_64
+BuildArch:      %{build_arch}
 BuildRequires:  systemd-units
 Requires:       systemd, logrotate, rsyslog > 7.2
 Requires(pre):  shadow-utils
@@ -26,7 +28,7 @@ results, and can trigger alerts if some condition is observed to be true.
 This package contains binary to export node metrics to prometheus.
 
 %prep
-%setup -q -n node_exporter-%{version}.linux-amd64
+%setup -q -n node_exporter-%{version}.linux-%{product_arch}
 
 %install
 # 0.15.0 = 0*50^2+15*50^1+0*50^0 = 750. See version_to_number()
