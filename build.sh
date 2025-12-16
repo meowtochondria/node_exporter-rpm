@@ -58,8 +58,8 @@ function usage()
 
 function parse_command()
 {
-    SHORT=v:r:b:lhda:
-    LONG=version:,release:,build_root:,list,help,debug,arch:
+    SHORT=v:r:b:a:lhd
+    LONG=version:,release:,build_root:,arch:,list,help,debug
     PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
     if [[ $? -ne 0 ]]; then
         # e.g. $? == 1
@@ -112,38 +112,6 @@ function parse_command()
                 ;;
         esac
     done
-}
-
-function detect_arch_and_os() {
-    if [ -z "$target_arch" ]; then
-        target_arch=$(uname -m)
-    fi
-    
-    raw_arch="$target_arch"
-
-    case "$raw_arch" in
-        x86_64)          product_arch="amd64" ;;
-        aarch64)         product_arch="arm64" ;;
-        armv7l|armv7hl)  product_arch="armv7" ;;
-        riscv64)         product_arch="riscv64" ;;
-        ppc64le)         product_arch="ppc64le" ;;
-        s390x)           product_arch="s390x" ;;
-        i686|i386)       product_arch="386" ;;
-        *)               product_arch="$raw_arch" ;;
-    esac
-
-    rpm_arch="$raw_arch"
-
-    if [ -f /usr/lib/rpm/rpmrc ]; then
-        translated_arch=$(grep "^buildarchtranslate: $raw_arch:" /usr/lib/rpm/rpmrc | awk '{print $3}')
-        
-        if [ -n "$translated_arch" ]; then
-            print_debug_line "Found architecture translation in rpmrc: $raw_arch -> $translated_arch"
-            rpm_arch="$translated_arch"
-        fi
-    fi
-
-    print_debug_line "Final Architectures -> Raw: $raw_arch | RPM: $rpm_arch | Product: $product_arch"
 }
 
 function perform_safety_checks()
@@ -224,6 +192,38 @@ function validate_inputs()
     print_debug_line "Using version: $pkg_version"
 }
 
+function detect_arch_and_os() {
+    if [ -z "$target_arch" ]; then
+        target_arch=$(uname -m)
+    fi
+    
+    raw_arch="$target_arch"
+
+    case "$raw_arch" in
+        x86_64)          product_arch="amd64" ;;
+        aarch64)         product_arch="arm64" ;;
+        armv7l|armv7hl)  product_arch="armv7" ;;
+        riscv64)         product_arch="riscv64" ;;
+        ppc64le)         product_arch="ppc64le" ;;
+        s390x)           product_arch="s390x" ;;
+        i686|i386)       product_arch="386" ;;
+        *)               product_arch="$raw_arch" ;;
+    esac
+
+    rpm_arch="$raw_arch"
+
+    if [ -f /usr/lib/rpm/rpmrc ]; then
+        translated_arch=$(grep "^buildarchtranslate: $raw_arch:" /usr/lib/rpm/rpmrc | awk '{print $3}')
+        
+        if [ -n "$translated_arch" ]; then
+            print_debug_line "Found architecture translation in rpmrc: $raw_arch -> $translated_arch"
+            rpm_arch="$translated_arch"
+        fi
+    fi
+
+    print_debug_line "Final Architectures -> Raw: $raw_arch | RPM: $rpm_arch | Product: $product_arch"
+}
+
 function get_available_versions()
 {
     print_debug_line "Getting available versions from $release_link"
@@ -301,9 +301,9 @@ function download_packages()
 # Pass all args of the script to the function.
 parse_command "$@"
 perform_safety_checks
+validate_inputs
 # Get the architecture code of the current execution build.
 detect_arch_and_os
-validate_inputs
 for func in ${execute_features[@]}; do
     ($func)
 done
