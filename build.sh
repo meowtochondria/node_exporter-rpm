@@ -185,7 +185,7 @@ function perform_safety_checks()
     done
 
     # The container environment does not have Systemd, so this part will be missing.
-    if [ "$(rpm --eval '%systemd_post')" == "%systemd_post" ]; then
+    if [ "$(rpm --eval '%systemd_post' 2>/dev/null)" == "%systemd_post" ]; then
         print_debug_line "${FUNCNAME[0]} : Systemd RPM macros are missing."
         if grep -q "release 7" /etc/redhat-release 2>/dev/null; then
             sys_pkg="systemd"
