@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 ###########################################
 # Some initializations.                   #
@@ -328,11 +328,6 @@ download_packages
 # For ease of reliable builds they are defined here on the command line.
 print_debug_line "Starting rpmbuild."
 
-print_debug_line "rpmbuild -ba --define=\"_topdir $build_root\" --define=\"buildroot $build_root/BUILDROOT\" --define=\"pkg_version $pkg_version\" --define=\"rpm_release $pkg_release\" --define=\"product_arch $product_arch\" --define=\"build_arch $rpm_arch\" --target \"$rpm_arch\" $build_root/SPECS/$product.spec"
+print_debug_line "rpmbuild --nodebuginfo --verbose -ba --define=\"_topdir $build_root\" --define=\"buildroot $build_root/BUILDROOT\" --define=\"pkg_version $pkg_version\" --define=\"rpm_release $pkg_release\" --define=\"product_arch $product_arch\" --define=\"build_arch $rpm_arch\" --define=\"_unitdir /usr/lib/systemd/system\" $build_root/SPECS/$product.spec"
 
-# TODO: rpmbuild is failing silently.
-rpmbuild -ba --define="_topdir $build_root" --define="buildroot $build_root/BUILDROOT" --define="pkg_version $pkg_version" --define="rpm_release $pkg_release" --define="product_arch $product_arch" --define="build_arch $rpm_arch" --target "$rpm_arch" $build_root/SPECS/$product.spec
-
-# rpmbuild -ba --define="_topdir /src/rpmbuild" --define="buildroot /src/rpmbuild/BUILDROOT" --define="pkg_version 1.10.2" --define="rpm_release 1" --define="product_arch amd64" --define="build_arch x86_64" --target "x86_64" --verbose /src/rpmbuild/SPECS/node_exporter.spec
-
-# rpmbuild -ba --define="_topdir /src/rpmbuild" --define="buildroot /src/rpmbuild/BUILDROOT" --define="pkg_version 1.10.2" --define="rpm_release 1" --define="product_arch amd64" --define="build_arch x86_64" /src/rpmbuild/SPECS/node_exporter.spec
+rpmbuild --nodebuginfo --verbose -ba --define="_topdir $build_root" --define="buildroot $build_root/BUILDROOT" --define="pkg_version $pkg_version" --define="rpm_release $pkg_release" --define="product_arch $product_arch" --define="build_arch $rpm_arch" --define="_unitdir /usr/lib/systemd/system" $build_root/SPECS/$product.spec
