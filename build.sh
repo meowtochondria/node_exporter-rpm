@@ -141,11 +141,16 @@ function ensure_dependencies()
         print_debug_line "${FUNCNAME[0]} : $dep is available."
     done
 
+    SUDO='sudo'
+    if [ $EUID -eq 0 ] && [ $bypass_root_check = "false" ]; then
+        SUDO=''
+    fi
+
     # Install missing packages. Exit if installation is unsuccessful.
     if [ -n "$unavailable_packages" ]; then
         echo -e "\nFollowing packages need to be installed:\n$unavailable_packages"
         echo    "Please enter the password for sudo (if prompted)"
-        sudo yum install -y $unavailable_packages
+        $SUDO yum install -y $unavailable_packages
 
         # Check if installation was successful.
         if [ "$?" -ne 0 ]; then
@@ -168,14 +173,14 @@ function perform_safety_checks()
 
     # Ensure we are on Red Hat or its derivatives.
     if [ -f "/etc/os-release" ]; then
-        proc_version=$(grep -E '^ID=' /etc/os-release | cut -f 2 -d '=')
+        proc_version=$(grep -E '^ID=' /etc/os-release | cut -f 2 -d '=' | tr -d '"')
     else
         proc_version=$(uname -a)
     fi
 
     print_debug_line "${FUNCNAME[0]} : proc version = $proc_version"
 
-    if [[ $proc_version != *"Red Hat"* ]] && [[ $proc_version != *"fedora"* ]] && [[ $proc_version != *"centos"* ]]; then
+    if [[ $proc_version != *"Red Hat"* ]] && [[ $proc_version != *"fedora"* ]] && [[ $proc_version != *"centos"* ]] && [[ $proc_version != *"rocky"* ]] && [[ $proc_version != *"amzn"* ]]  && [[ $proc_version != *"rhel"* ]]; then
         echo "ERROR: Your OS is not supported by this script! :("
         echo "At the moment only Red Hat and its derivatives are supported."
         exit 4
