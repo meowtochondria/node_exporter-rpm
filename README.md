@@ -21,12 +21,12 @@ Code to package various versions of Prometheus project's node_exporter with mini
 
 ## Pre-requisites
 
-* RedHat or its derivatives like CentOS.
+* RedHat or its derivatives like RockyLinux.
 * Network connection to public internet to reach repositories and github.
 
 ## Limitations
 
-* Script has been only tested on CentOS 7 to package latest available node_exporter. Please feel free to make pull requests if you want to add more nuanced support for older versions.
+* Script has been only tested on AmazonLinux 2023, Fedora 43 & RockyLinux 8 containers to package latest available node_exporter. Please feel free to make pull requests if you want to add more nuanced support for older versions.
 * No guarantees are being made for fitness of purpose or merchantabilities. Any results of usage of work herein is not author's or contributor's responsibility.
 
 ## Usage
