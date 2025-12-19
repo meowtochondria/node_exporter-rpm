@@ -13,7 +13,7 @@ Source4:        environment.conf
 
 BuildRoot:      %{buildroot}
 BuildArch:      %{build_arch}
-BuildRequires:  (systemd or systemd-rpm-macros)
+BuildRequires:  (systemd-units or systemd-rpm-macros)
 Requires:       systemd, logrotate, rsyslog > 7.2
 Requires(pre):  shadow-utils
 
