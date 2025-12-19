@@ -182,7 +182,6 @@ function ensure_supported_env()
 
 function map_cpu_arch_to_product_arch() {
     # Determine what package maps to upstream as it slightly deviates from what RPM likes.
-    # TODO: Verify if this switch case and capture from /usr/lib/rpm/rpmrc is enough to triangulate upstream builds.
     case "$target_arch" in
         x86_64|ia32e)               product_arch="amd64" ;;
         aarch64)                    product_arch="arm64" ;;
@@ -226,7 +225,7 @@ function validate_inputs()
     fi
 
     if [ "$is_version_valid" == 'false' ]; then
-        echo "'$pkg_version' of $product is not available upstream. Versions available for packaging:"
+        echo "'$pkg_version' of $product with arch $target_arch is not available upstream. Versions available for packaging:"
         print_available_versions
         exit 6
     fi
@@ -243,6 +242,7 @@ function get_available_versions()
     if [ "$?" -ne 0 ]; then
         echo "Could not fetch releases from $release_link."
         echo "Please verify you are connected to the interwebz."
+        echo "Or $target_arch ($product_arch) may not be availble upstream."
         echo "Exiting..."
         exit 7
     fi
