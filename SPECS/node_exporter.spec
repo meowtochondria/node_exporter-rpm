@@ -146,14 +146,16 @@ echo
 /usr/share/prometheus/node_exporter/LICENSE
 
 %changelog
+* Fri Dec 19 2025 github@gimme.email
+- Make build script container friendly.
 
 * Mon Dec 15 2025 lam827@lamgc.net
 - Added support for more architectures in addition to x86_64.
 
-* Mon Feb 04 2019 talk@devghai.com
+* Mon Feb 04 2019 github@gimme.email
 - Added support for handling breaking changes introduced in 0.15.0.
 
-* Tue May 23 2017 talk@devghai.com
+* Tue May 23 2017 github@gimme.email
 - Initial release for packaging Prometheus's Node Exporter.
   See https://github.com/meowtochondria/node_exporter-rpm/blob/master/README.md.
 
