@@ -13,6 +13,7 @@ Source4:        environment.conf
 
 BuildRoot:      %{buildroot}
 BuildArch:      %{build_arch}
+BuildRequires:  (systemd or systemd-rpm-macros)
 Requires:       systemd, logrotate, rsyslog > 7.2
 Requires(pre):  shadow-utils
 
@@ -149,7 +150,7 @@ echo
 * Mon Dec 15 2025 lam827@lamgc.net
 - Added support for more architectures in addition to x86_64.
 
-* Sun Feb 04 2019 talk@devghai.com
+* Mon Feb 04 2019 talk@devghai.com
 - Added support for handling breaking changes introduced in 0.15.0.
 
 * Tue May 23 2017 talk@devghai.com

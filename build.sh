@@ -57,8 +57,6 @@ function usage()
     echo -e "\n-b\tPath that will contain RPM build tree. Default is current dir."
     echo -e "\n-a\tTarget CPU architecture. Appropriate upstream package will be"
     echo -e "  \tdetected automatically. Default: $target_arch"
-    echo -e "\n-t\tBypass root check. NOT RECOMMENDED. Useful when running inside"
-    echo -e "  \tcontainers where only root is available."
     echo -e "\n-l\tList available versions."
     echo -e "\n-h\tShow this help message and exit."
     echo -e "\n-d\tPrint debugging statements."
@@ -67,8 +65,8 @@ function usage()
 
 function parse_command()
 {
-    SHORT=v:r:b:a:tlhd
-    LONG=version:,release:,build-root:,arch:,bypass-root-check,list,help,debug
+    SHORT=v:r:b:a:lhd
+    LONG=version:,release:,build-root:,arch:,list,help,debug
     PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
     if [[ $? -ne 0 ]]; then
         # e.g. $? == 1
@@ -104,10 +102,6 @@ function parse_command()
                 target_arch="$2"
                 shift 2
                 ;;
-            -t|--bypass-root-check)
-                bypass_root_check="true"
-                shift
-                ;;
             -l|--list)
                 execute_features+=('print_available_versions')
                 shift
@@ -142,7 +136,7 @@ function ensure_dependencies()
     done
 
     SUDO='sudo'
-    if [ $EUID -eq 0 ] && [ $bypass_root_check = "false" ]; then
+    if [ $EUID -eq 0 ]; then
         SUDO=''
     fi
 
@@ -162,13 +156,12 @@ function ensure_dependencies()
     fi
 }
 
-function perform_safety_checks()
+function ensure_supported_env()
 {
     # Ensure we are not running as root.
-    if [ $EUID -eq 0 ] && [ $bypass_root_check = "false" ]; then
-        echo 'Please do not run this script as root.'
-        echo 'See https://fedoraproject.org/wiki/How_to_create_an_RPM_package#Preparing_your_system for details.'
-        exit 3
+    if [ $EUID -eq 0 ]; then
+        echo 'WARN: Please do not run this script as root.'
+        echo 'WARN: See https://fedoraproject.org/wiki/How_to_create_an_RPM_package#Preparing_your_system for details.'
     fi
 
     # Ensure we are on Red Hat or its derivatives.
@@ -180,7 +173,7 @@ function perform_safety_checks()
 
     print_debug_line "${FUNCNAME[0]} : proc version = $proc_version"
 
-    if [[ $proc_version != *"Red Hat"* ]] && [[ $proc_version != *"fedora"* ]] && [[ $proc_version != *"centos"* ]] && [[ $proc_version != *"rocky"* ]] && [[ $proc_version != *"amzn"* ]]  && [[ $proc_version != *"rhel"* ]]; then
+    if [[ ! $proc_version =~ fedora|centos|rocky|amzn|rhel|almalinux|Red\ Hat ]]; then
         echo "ERROR: Your OS is not supported by this script! :("
         echo "At the moment only Red Hat and its derivatives are supported."
         exit 4
@@ -191,11 +184,15 @@ function map_cpu_arch_to_product_arch() {
     # Determine what package maps to upstream as it slightly deviates from what RPM likes.
     # TODO: Verify if this switch case and capture from /usr/lib/rpm/rpmrc is enough to triangulate upstream builds.
     case "$target_arch" in
-        x86_64)          product_arch="amd64" ;;
-        aarch64)         product_arch="arm64" ;;
-        armv7l|armv7hl)  product_arch="armv7" ;;
-        i686|i386)       product_arch="386" ;;
-        *)               product_arch="$target_arch" ;;
+        x86_64|ia32e)               product_arch="amd64" ;;
+        aarch64)                    product_arch="arm64" ;;
+        armv5tel|armv5l)            product_arch="armv5" ;;
+        armv6l|armv6hl)             product_arch="armv6" ;;
+        armv7l|armv7hl|armv7hnl)    product_arch="armv7" ;;
+        i686|i586|i386)             product_arch="386" ;;
+        mipsel)                     product_arch="mipsle" ;;
+        mips64el)                   product_arch="mips64le" ;;
+        *)                          product_arch="$target_arch" ;;
     esac
 
     if [ -f /usr/lib/rpm/rpmrc ]; then
@@ -241,8 +238,8 @@ function get_available_versions()
 {
     map_cpu_arch_to_product_arch
 
-    print_debug_line "${FUNCNAME[0]} : Getting available versions from $release_link"
-    links=$(wget $release_link -O - | grep -oP "https.+$product-\d+\.\d+\.\d+\.linux-$product_arch.tar.gz")
+    print_debug_line "${FUNCNAME[0]} : Getting available versions from $release_link. Non-release builds like rc/beta will be skipped."
+    links=$(wget --quiet $release_link -O - | grep -oP "https.+$product-\d+\.\d+\.\d+\.linux-$product_arch.tar.gz")
     if [ "$?" -ne 0 ]; then
         echo "Could not fetch releases from $release_link."
         echo "Please verify you are connected to the interwebz."
@@ -314,6 +311,8 @@ function download_packages()
 }
 
 ##################
+# Nothing would work if we are not on a RPM-based OS.
+ensure_supported_env
 # Ensure all packages are available as some OS images even lack getopt package.
 ensure_dependencies
 
@@ -324,7 +323,6 @@ for func in ${execute_features[@]}; do
 done
 [ ${#execute_features[@]} -gt 0 ] && exit 0
 
-perform_safety_checks
 validate_inputs
 setup_rpm_tree
 download_packages
@@ -333,6 +331,6 @@ download_packages
 # For ease of reliable builds they are defined here on the command line.
 print_debug_line "Starting rpmbuild."
 
-print_debug_line "rpmbuild --nodebuginfo --verbose -ba --define=\"_topdir $build_root\" --define=\"buildroot $build_root/BUILDROOT\" --define=\"pkg_version $pkg_version\" --define=\"rpm_release $pkg_release\" --define=\"product_arch $product_arch\" --define=\"build_arch $rpm_arch\" --define=\"_unitdir /usr/lib/systemd/system\" $build_root/SPECS/$product.spec"
+print_debug_line "rpmbuild --nodebuginfo --verbose -ba --define=\"_topdir $build_root\" --define=\"buildroot $build_root/BUILDROOT\" --define=\"pkg_version $pkg_version\" --define=\"rpm_release $pkg_release\" --define=\"product_arch $product_arch\" --define=\"build_arch $rpm_arch\" $build_root/SPECS/$product.spec"
 
-rpmbuild --nodebuginfo --verbose -ba --define="_topdir $build_root" --define="buildroot $build_root/BUILDROOT" --define="pkg_version $pkg_version" --define="rpm_release $pkg_release" --define="product_arch $product_arch" --define="build_arch $rpm_arch" --define="_unitdir /usr/lib/systemd/system" $build_root/SPECS/$product.spec
+rpmbuild --nodebuginfo --verbose -ba --define="_topdir $build_root" --define="buildroot $build_root/BUILDROOT" --define="pkg_version $pkg_version" --define="rpm_release $pkg_release" --define="product_arch $product_arch" --define="build_arch $rpm_arch" $build_root/SPECS/$product.spec
