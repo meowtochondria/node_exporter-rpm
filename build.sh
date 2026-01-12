@@ -11,6 +11,7 @@ isDebug=false
 current_dir=$(dirname ${0})
 build_root=$(realpath $current_dir/rpmbuild)
 release_link="https://api.github.com/repos/$project/$product/releases"
+maybe_login_to_github=${GITHUB_TOKEN:+--header="Authorization: Bearer $GITHUB_TOKEN"}
 execute_features=()
 target_arch='x86_64'
 product_arch='amd64'
@@ -60,6 +61,7 @@ function usage()
     echo -e "\n-h\tShow this help message and exit."
     echo -e "\n-d\tPrint debugging statements."
     echo -e "\nExample: ${0} -v $pkg_version"
+    echo -e "\nGITHUB_TOKEN environment variable can be set to authenticate to github.com."
 }
 
 function parse_command()
@@ -237,11 +239,15 @@ function get_available_versions()
     map_cpu_arch_to_product_arch
 
     print_debug_line "${FUNCNAME[0]} : Getting available versions from $release_link. Non-release builds like rc/beta will be skipped."
-    links=$(wget --quiet $release_link -O - | grep -oP "https.+$product-\d+\.\d+\.\d+\.linux-$product_arch.tar.gz")
+    links=$(
+        wget "${maybe_login_to_github}" --quiet $release_link -O - |
+        grep -oP "https.+$product-\d+\.\d+\.\d+\.linux-$product_arch.tar.gz"
+    )
     if [ "$?" -ne 0 ]; then
         echo "Could not fetch releases from $release_link."
         echo "Please verify you are connected to the interwebz."
         echo "Or $target_arch ($product_arch) may not be availble upstream."
+        echo "You might also need to set GITHUB_TOKEN to login to github.com."
         echo "Exiting..."
         exit 7
     fi
@@ -290,7 +296,7 @@ function download_packages()
     fi
 
     print_debug_line "${FUNCNAME[0]} : Downloading ${available_versions[$pkg_version]} to $sources_dir/$core_archive_name"
-    wget -O "${sources_dir}/${core_archive_name}" "${available_versions[$pkg_version]}"
+    wget "${maybe_login_to_github}" -O "${sources_dir}/${core_archive_name}" "${available_versions[$pkg_version]}"
 
     # Print a message if download leads to file of size 0, or wget exits with
     # non-zero exit code
