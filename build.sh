@@ -10,7 +10,6 @@ pkg_release='1'
 isDebug=false
 current_dir=$(dirname ${0})
 build_root=$(realpath $current_dir/rpmbuild)
-download_url_root="https://github.com/$project/$product/releases/download/"
 release_link="https://api.github.com/repos/$project/$product/releases"
 execute_features=()
 target_arch='x86_64'
