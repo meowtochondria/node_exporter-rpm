@@ -246,7 +246,7 @@ function get_available_versions()
         exit 7
     fi
     for link in $links; do
-        ver=$(echo $link | cut -f 8 -d '/' | tr -d 'v')
+        ver=$(echo "$link" | cut -f 8 -d '/' | tr -d 'v')
         available_versions["$ver"]=$link
         print_debug_line "${FUNCNAME[0]} : $ver = $link"
     done
@@ -257,7 +257,7 @@ function print_available_versions()
     echo "Released versions available upstream..."
     [ ${#available_versions[@]} -eq 0 ] && get_available_versions
     # Reference: http://www.tldp.org/LDP/abs/html/arrays.html
-    echo ${!available_versions[@]} | tr -s ' ' '\n' | sort --version-sort --reverse
+    echo "${!available_versions[@]}" | tr -s ' ' '\n' | sort --version-sort --reverse
 }
 
 function setup_rpm_tree()
@@ -279,22 +279,22 @@ function setup_rpm_tree()
 function download_packages()
 {
     # prometheus is not publishing checksums for every release :/
-    core_archive_name=$(basename ${available_versions[$pkg_version]})
-    sources_dir="$build_root/SOURCES"
+    core_archive_name=$(basename "${available_versions[$pkg_version]}")
+    sources_dir="${build_root:?}/SOURCES"
     failed_download='false'
 
     # Skip download if file already exists
-    if [ -f "$sources_dir/$core_archive_name" ]; then
+    if [ -f "${sources_dir}/${core_archive_name}" ]; then
         print_debug_line "${FUNCNAME[0]} : $sources_dir/$core_archive_name already exists. Not downloading again..."
         return
     fi
 
     print_debug_line "${FUNCNAME[0]} : Downloading ${available_versions[$pkg_version]} to $sources_dir/$core_archive_name"
-    wget -O $sources_dir/$core_archive_name ${available_versions[$pkg_version]}
+    wget -O "${sources_dir}/${core_archive_name}" "${available_versions[$pkg_version]}"
 
     # Print a message if download leads to file of size 0, or wget exits with
     # non-zero exit code
-    if [ ! -s $sources_dir/$core_archive_name -o "$?" -ne 0 ]; then
+    if [ ! -s "${sources_dir}/${core_archive_name}" -o "$?" -ne 0 ]; then
         echo
         echo "Failed to download ${available_versions[$pkg_version]}."
         echo "Please verify if the link is accurate and network connectivity"
