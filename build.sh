@@ -245,9 +245,9 @@ function get_available_versions()
     )
     if [ "$?" -ne 0 ]; then
         echo "Could not fetch releases from $release_link."
-        echo "Please verify you are connected to the interwebz."
-        echo "Or $target_arch ($product_arch) may not be availble upstream."
-        echo "You might also need to set GITHUB_TOKEN to login to github.com."
+        echo " * The connection to the public internet might be not working"
+        echo " * There is no build for $target_arch ($product_arch) available upstream"
+        echo " * github.com might require authentication - in that case please set GITHUB_TOKEN environment variable"
         echo "Exiting..."
         exit 7
     fi
