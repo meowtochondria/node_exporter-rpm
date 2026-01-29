@@ -23,6 +23,7 @@ Code to package various versions of Prometheus project's node_exporter with mini
 
 * RedHat or its derivatives like RockyLinux.
 * Network connection to public internet to reach repositories and github.
+* If access to github.com is rate limited, please provide GitHub access token in the `GITHUB_TOKEN` environment variable.
 
 ## Limitations
 
